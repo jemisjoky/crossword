@@ -19,6 +19,13 @@ def add_new_char(coordinates: tuple[int, int], solver: z3.Solver) -> z3.ArithRef
     return new_char
 
 
+def add_distinctness_constraint(
+    solver: z3.Solver, all_vars: list[list[z3.ArithRef]]
+) -> None:
+    """Add the constraint that all variables take distinct values"""
+    solver.add(z3.Distinct([v for v in row for row in all_vars]))
+
+
 def add_word_constraint(word: str, solver: z3.Solver) -> None:
     """Add the constraint that the desired word appears somewhere in the solver"""
 
@@ -53,11 +60,12 @@ if __name__ == "__main__":
     solver = z3.Solver()
     width, height = 1, 1
 
-    # Add all the variables
+    # Add all the variables, make them distinct
     all_vars = []
     for y in range(height):
         row = [add_new_char((y, x), solver) for x in range(width)]
         all_vars.append(row)
+    add_distinctness_constraint(solver, all_vars)
 
     # Solve the constraints and print out all solutions
     print_unique_solutions(solver, all_vars)
