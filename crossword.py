@@ -32,34 +32,39 @@ def add_word_constraints(
     """Add the constraint that the desired word appears somewhere in the solver"""
     # Get information about the size of the grid, convert word into list of ints
     height, width, wlen = len(all_vars), len(all_vars[0]), len(word)
-    word_i = [ord(c) for c in word]
 
     # Word has to appear at some point, either horizontally, vertically, or diagonally
-    cons = []
+    constraints = []
 
     # Horizontal constraints
     for y in range(height):
         for x0 in range(0, width - wlen + 1):
-            cons.append(
-                z3.And(*[all_vars[y][x] == c for x, c in enumerate(word_i, x0)])
-            )
+            cons = []
+            for i, c in enumerate(word):
+                var = all_vars[y][x0 + i]
+                cons.append(z3.Or(var == ord(c.upper()), var == ord(c.lower())))
+            constraints.append(z3.And(*cons))
 
     # Vertical constraints
-    for x in range(height):
-        for y0 in range(0, height - wlen + 1):
-            cons.append(
-                z3.And(*[all_vars[y][x] == c for y, c in enumerate(word_i, y0)])
-            )
+    for y0 in range(0, height - wlen + 1):
+        for x in range(0, width):
+            cons = []
+            for i, c in enumerate(word):
+                var = all_vars[y0 + i][x]
+                cons.append(z3.Or(var == ord(c.upper()), var == ord(c.lower())))
+            constraints.append(z3.And(*cons))
 
     # Diagonal constraints
-    for x0 in range(0, height - wlen + 1):
-        for y0 in range(0, height - wlen + 1):
-            cons.append(
-                z3.And(*[all_vars[y0 + i][x0 + i] == c for i, c in enumerate(word_i)])
-            )
+    for y0 in range(0, height - wlen + 1):
+        for x0 in range(0, width - wlen + 1):
+            cons = []
+            for i, c in enumerate(word):
+                var = all_vars[y0 + i][x0 + i]
+                cons.append(z3.Or(var == ord(c.upper()), var == ord(c.lower())))
+            constraints.append(z3.And(*cons))
 
     # Require one of these constraints to be satisfied for this word
-    solver.add(z3.Or(*cons))
+    solver.add(z3.Or(*constraints))
 
 
 def print_unique_solutions(
@@ -67,7 +72,11 @@ def print_unique_solutions(
 ) -> None:
     """Print all the unique solutions to the crossword layout"""
     result = solver.check()
+    num_results = 0
+
+    # Start enumerating through the different solutions
     while result == z3.sat:
+        num_results += 1
         model = solver.model()
 
         # Get values for all our variables and get constraints for next unique solution
@@ -86,12 +95,13 @@ def print_unique_solutions(
         solver.add(z3.Or(constraints))
         result = solver.check()
         print()
+    print(f"{num_results} solutions possible.")
 
 
 if __name__ == "__main__":
     solver = z3.Solver()
-    width, height = 2, 2
-    word_list = ["AZ", "BZ"]
+    width, height = 4, 4
+    word_list = ["JMN", "AMN", "NLVN", "JEM", "TSC", "FF", "O"]
 
     # Add all the variables, make them distinct
     all_vars = [
