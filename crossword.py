@@ -23,11 +23,43 @@ def add_distinctness_constraint(
     solver: z3.Solver, all_vars: list[list[z3.ArithRef]]
 ) -> None:
     """Add the constraint that all variables take distinct values"""
-    solver.add(z3.Distinct([v for v in row for row in all_vars]))
+    solver.add(z3.Distinct([v for row in all_vars for v in row]))
 
 
-def add_word_constraint(word: str, solver: z3.Solver) -> None:
+def add_word_constraints(
+    word: str, solver: z3.Solver, all_vars: list[list[z3.ArithRef]]
+) -> None:
     """Add the constraint that the desired word appears somewhere in the solver"""
+    # Get information about the size of the grid, convert word into list of ints
+    height, width, wlen = len(all_vars), len(all_vars[0]), len(word)
+    word_i = [ord(c) for c in word]
+
+    # Word has to appear at some point, either horizontally, vertically, or diagonally
+    cons = []
+
+    # Horizontal constraints
+    for y in range(height):
+        for x0 in range(0, width - wlen + 1):
+            cons.append(
+                z3.And(*[all_vars[y][x] == c for x, c in enumerate(word_i, x0)])
+            )
+
+    # Vertical constraints
+    for x in range(height):
+        for y0 in range(0, height - wlen + 1):
+            cons.append(
+                z3.And(*[all_vars[y][x] == c for y, c in enumerate(word_i, y0)])
+            )
+
+    # Diagonal constraints
+    for x0 in range(0, height - wlen + 1):
+        for y0 in range(0, height - wlen + 1):
+            cons.append(
+                z3.And(*[all_vars[y0 + i][x0 + i] == c for i, c in enumerate(word_i)])
+            )
+
+    # Require one of these constraints to be satisfied for this word
+    solver.add(z3.Or(*cons))
 
 
 def print_unique_solutions(
@@ -58,14 +90,18 @@ def print_unique_solutions(
 
 if __name__ == "__main__":
     solver = z3.Solver()
-    width, height = 1, 1
+    width, height = 2, 2
+    word_list = ["AZ", "BZ"]
 
     # Add all the variables, make them distinct
-    all_vars = []
-    for y in range(height):
-        row = [add_new_char((y, x), solver) for x in range(width)]
-        all_vars.append(row)
+    all_vars = [
+        [add_new_char((y, x), solver) for x in range(width)] for y in range(height)
+    ]
     add_distinctness_constraint(solver, all_vars)
+
+    # Add the constraints on the words we want
+    for word in word_list:
+        add_word_constraints(word, solver, all_vars)
 
     # Solve the constraints and print out all solutions
     print_unique_solutions(solver, all_vars)
